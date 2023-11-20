@@ -270,6 +270,7 @@ class Options:
     dropoutrec = 0
     learning_rate_decay =  0.985
     learning_rate_decay_after = 5
+    device = "cuda"
 
 opt = Options()
 
@@ -481,6 +482,40 @@ class Seq2SeqAttentionModel(nn.Module):
         self.optimizers["decoder_optimizer"] = optim.RMSprop(self.decoder.parameters(), lr=self.opt.learning_rate, alpha=self.opt.decay_rate)
         self.optimizers["attention_optimizer"] = optim.RMSprop(self.attention.parameters(), lr=self.opt.learning_rate, alpha=self.opt.decay_rate)
         self.criterion = nn.NLLLoss(size_average=False, ignore_index=lf_word2idx['<PAD>']) # torch.nn.CrossEntropyLoss(ignore_index=0) # size_average=False,
+        self.device = self.opt.device
+
+    # def forward(self, sentence: torch.LongTensor, form: torch.LongTensor, is_eval: bool=False):
+
+    #     cell_en = torch.zeros((sentence.size(1), opt.rnn_size), dtype=torch.float, requires_grad=True).to(sentence.device) # Cell state
+    #     hidden_en = torch.zeros((sentence.size(1), opt.rnn_size), dtype=torch.float, requires_grad=True).to(sentence.device) # Hidden state
+
+    #     # Initializae a tensor to store decoder's output
+    #     outputs = torch.zeros(form.size(0), form.size(1), LF_VOCAB_LEN).to(self.device) #???
+
+    #     # Last hidden & cell state of the encoder is used as the decoder's initial hidden state
+    #     enc_outputs, enc_states = self.encoder(sentence, cell_en.unsqueeze(0), hidden_en.unsqueeze(0))
+    #     dec_states = enc_states
+    #     decoder_input = torch.tensor([[LF_SOS_INDEX] * sentence.size(1)])
+
+    #     # Predict token by token
+    #     for i in range(form.size(0) - 1):
+    #         decoder_input = decoder_input.to(sentence.device)
+    #         dec_outputs, dec_states = self.decoder(decoder_input, dec_states[0].unsqueeze(0), dec_states[1].unsqueeze(0))
+    #         decoder_input = form[i + 1].unsqueeze(0) # Input current target for next interation
+    #         outputs[i] = self.attention(enc_outputs.transpose(0, 1), dec_states[0])
+
+    #         # if is_eval:
+    #         # # query = query_batch[i].unsqueeze(0) if teacher_forcing else best_pred.unsqueeze(0)
+    #         #   value, indice = outputs[i].topk(1)
+    #         #   decoder_input = indice.detach()
+
+    #         #   # Break if end-of-sequence token is predicted
+    #         #   if indice.item() == LF_EOS_INDEX:
+    #         #       break
+    #         # else:
+    #         #   decoder_input = form[i + 1].unsqueeze(0) # Input current target for next interation
+
+    #     return outputs
 
     def train(self):
         self.encoder.train()
@@ -557,8 +592,7 @@ def train(model: nn.Module, train_dataloader: DataLoader, num_epochs: int=5,
           # Zero the gradients to prepare for backpropagation
           model.zero_grad()
 
-          sentence = sentence.to(device)
-          form = form.to(device)
+          sentence, form = sentence.to(device), form.to(device)
 
           # Initialize cell and hidden states for the encoder
           cell_en = torch.zeros((sentence.size(1), model.opt.rnn_size), dtype=torch.float, requires_grad=True).to(device)  # Cell state
@@ -582,6 +616,10 @@ def train(model: nn.Module, train_dataloader: DataLoader, num_epochs: int=5,
               # Calculate attention and accumulate the loss
               pred = model.attention(encoder_outputs.transpose(0, 1), decoder_hidden[0])
               loss += model.criterion(pred.squeeze(0), form[i + 1])
+          # logits = model.forward(sentence, form)
+          # logits, form = logits.to(device), form.to(device)
+          # loss = model.criterion(logits[1:].reshape(-1, logits.shape[-1]), form[1:].reshape(-1)) #!!!
+          # loss_sum += loss.item()
 
           # Average the loss over the batch
           loss = loss / sentence.size(1)
@@ -594,7 +632,9 @@ def train(model: nn.Module, train_dataloader: DataLoader, num_epochs: int=5,
 
           # Update the model parameters using the optimizer
           model.step()
-          loss_sum = loss.item() / len(train_dataloader)
+
+      # loss_sum = loss.item() / len(train_dataloader)
+      loss_sum = loss / len(train_dataloader)
 
       # Calculate and print the average loss per batch
       print("Average Loss per Batch: {:.4f}\n".format(loss_sum))
@@ -646,8 +686,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader, device: str="cuda") -> tu
 
         for sentence, form in dataloader:
 
-            sentence = sentence.to(device)
-            form = form.to(device)
+            sentence, form = sentence.to(device), form.to(device)
 
             # Initialize encoder hidden and cell states
             hidden_en = torch.zeros((sentence.size(1), model.opt.rnn_size), dtype=torch.float, requires_grad=True).to(device)  # Hidden state
@@ -656,7 +695,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader, device: str="cuda") -> tu
             encoder_outputs, encoder_states = model.encoder(sentence, hidden_en.unsqueeze(0), cell_en.unsqueeze(0))
 
             # Initialize the first token in the decoder sequence (start-of-sequence)
-            prev = torch.tensor([[LF_SOS_INDEX] * sentence.size(1)], device=device)
+            prev = torch.tensor([[LF_SOS_INDEX]], device=device) # * sentence.size(1)
             decoder_states = encoder_states
 
             # Initialize lists to store predicted form and attention weights
@@ -666,17 +705,17 @@ def evaluate(model: nn.Module, dataloader: DataLoader, device: str="cuda") -> tu
             for index in range(form.size(0) - 1):
               # Generating an output at each time step, and computing attention weights
               # to focus on different parts of the input sequence during the decoding process
+              prev = prev.to(device)
               decoder_output, decoder_states = model.decoder(prev, decoder_states[0].unsqueeze(0), decoder_states[1].unsqueeze(0))
               pred = model.attention(encoder_outputs.transpose(0, 1), decoder_states[0])
 
               # Choose the token with the highest probability
-              value, indice = pred.topk(1)
-              prev = indice.detach()
-
-              predictions.append(prev.cpu().numpy())
+              value = pred.argmax().item()
+              prev = torch.tensor([[value]])
+              predictions.append(value)
 
               # Break if end-of-sequence token is predicted
-              if indice.item() == LF_EOS_INDEX:
+              if value == LF_EOS_INDEX:
                   break
 
             # Convert predictions list to a tensor
@@ -688,10 +727,10 @@ def evaluate(model: nn.Module, dataloader: DataLoader, device: str="cuda") -> tu
 
             # Calculate per-token accuracy
             token_accuracy = [p == t for p, t in zip(filtered_prediction, filtered_form)]
+            total_tokens += len(token_accuracy)
 
             correct_tokens = sum(token_accuracy).item()
             total_correct += correct_tokens
-            total_tokens += len(token_accuracy)
 
             # Check if all tokens in a sequence are correct for exact match
             exact_correct += int(all(token_accuracy))
@@ -709,7 +748,7 @@ def main():
     dataloader_train, dataloader_test = build_dataloaders(jobs_train, jobs_test, train_batch_size=20)
     # print(dataloader_train) #!!!!!
     model = create_model()
-    model = train(model, dataloader_train, num_epochs=20, device="cpu") #device # Epochs = 5
+    model = train(model, dataloader_train, num_epochs=5, device="cpu") #device # Epochs = 5
     test_per_token_accuracy, test_exact_match_accuracy = evaluate(model, dataloader_test, device=device)
     print(f'Test Per-token Accuracy: {test_per_token_accuracy}')
     print(f'Test Exact-match Accuracy: {test_exact_match_accuracy}')
