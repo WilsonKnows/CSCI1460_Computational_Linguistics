@@ -5,7 +5,7 @@ This course provides an introduction to the field of Natural Language Processing
 
 There are 5 assignments and 1 final project:
 
-### Link to the video of the final project: https://drive.google.com/file/d/1JuOFJ0KZLZiG-9xJs8VTNHhurohBO_lv/view?usp=drive_link
+#### Final Project Video: https://drive.google.com/file/d/1JuOFJ0KZLZiG-9xJs8VTNHhurohBO_lv/view?usp=drive_link
 
 1. You will be implementing BOW for sentiment classification. In this assignment, you will be using a very useful NLP library (spaCy), and a popular machine learning library (scikit-learn, or sklearn) to help you with implementing a standard ML workflow.
 
