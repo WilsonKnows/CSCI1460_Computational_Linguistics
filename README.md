@@ -5,6 +5,8 @@ This course provides an introduction to the field of Natural Language Processing
 
 There are 5 assignments and 1 final project:
 
+### Link to the video of the final project: https://drive.google.com/file/d/1JuOFJ0KZLZiG-9xJs8VTNHhurohBO_lv/view?usp=drive_link
+
 1. You will be implementing BOW for sentiment classification. In this assignment, you will be using a very useful NLP library (spaCy), and a popular machine learning library (scikit-learn, or sklearn) to help you with implementing a standard ML workflow.
 
 2. In this project you will leverage skills that you have learnt in the past few weeks, such as Topic Modeling, Latent Dirichlet Allocation to build a small model analyzing the content of news articles from different sources around the US.
@@ -15,4 +17,4 @@ There are 5 assignments and 1 final project:
 
 5. In this assignment, you'll be implementing a dependency parser using the Shift-Reduce algorithm described in Lecture 17. In Part 1, you'll implement the basic algorithm, with a dummy "oracle" that just uses the ground-truth labels. Then, you'll train a classifier to act as an actual oracle in Part 2, and evaluate the results of that model in Part 3.
 
-Final. For your final project, you will apply concepts you have learned over the semester in order to reproduce a result from a recently published research paper. The goal of this project is to give you a taste of realistic NLP research while providing enough structure to ensure that an interesting result is achievable in the short time frame. You will implement full seq2seq model with attention mentioned in the paper "Language to Logical Form with Neural Attention".
+6. For your final project, you will apply concepts you have learned over the semester in order to reproduce a result from a recently published research paper. The goal of this project is to give you a taste of realistic NLP research while providing enough structure to ensure that an interesting result is achievable in the short time frame. You will implement full seq2seq model with attention mentioned in the paper "Language to Logical Form with Neural Attention".
